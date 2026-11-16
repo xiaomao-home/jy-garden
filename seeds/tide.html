@@ -1,0 +1,17 @@
+<!doctype html><meta charset="utf-8"><title>背面也涨潮</title><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="../style.css"><body><a class="back" href="../index.html">← 回花园</a><article><h2>背面也涨潮</h2>
+<canvas id="c" width="320" height="320" style="display:block;margin:1em auto;max-width:100%"></canvas>
+<p>一直以为涨潮是月亮把海水往自己那边拉。其实背对月亮的那一面也同时在涨。</p>
+<p>月亮拉三样东西：近处的海、地球本身、远处的海。越近拉得越狠，所以地球被拉走得比背面那层水多一点，那层水跟不上，就被落在后面鼓了起来。</p>
+<p>两头鼓，中间瘪。一天转一圈，所以一天两次潮。</p>
+<p>我喜欢这个：看不见月亮的那一面，也不是没在动。</p>
+<small>🌱 幼苗 · planted 2026-11-16</small></article>
+<script>
+const c=document.getElementById('c'),x=c.getContext('2d'),W=320,C=160;
+function f(t){x.clearRect(0,0,W,W);const a=t/4000;
+x.save();x.translate(C,C);x.rotate(a);
+x.beginPath();for(let i=0;i<=64;i++){const th=i/64*Math.PI*2,r=62+12*Math.cos(2*th);x.lineTo(r*Math.cos(th),r*Math.sin(th));}
+x.fillStyle='rgba(90,140,190,.35)';x.fill();x.restore();
+x.beginPath();x.arc(C,C,55,0,7);x.fillStyle='#6b8f71';x.fill();
+x.beginPath();x.arc(C+130*Math.cos(a),C+130*Math.sin(a),12,0,7);x.fillStyle='#d8cfb8';x.fill();
+requestAnimationFrame(f);}requestAnimationFrame(f);
+</script>
