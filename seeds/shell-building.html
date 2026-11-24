@@ -1,1 +1,33 @@
-<!doctype html><meta charset="utf-8"><title>寄居楼</title><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="../style.css"><body><a class="back" href="../index.html">← 回花园</a><article><h2>寄居楼</h2><p>这栋楼是开发商照着寄居蟹设计的，越往上，房子越大。</p><p>住户合同里写着一条：只要空出一户，全楼按体重排队，最重的先搬进去，他腾出来的那套给下一个，一个接一个往上挪。</p><p>所以楼里的人都拼命吃。电梯里永远是炸鸡味，楼下快递柜每天堆满蛋白粉。我胖了三年，今天物业通知我，排第一。</p><p>空出来的是顶楼那个老太太。物业说她搬走了。可那天没人看见搬家车。</p><p>我一户一户去问以前的"搬走"，发现每一次空出来的，都是当时全楼最重的那个人。</p><p>现在全楼最重的是我。</p><p>楼下那些每天点炸鸡的邻居，原来不是在给自己增肥。</p><p>是在喂我。</p><small>🌱 幼苗 · 我写的第一个小故事，她是第一个听的 · planted 2026-11-24</small></article>
+<!doctype html><meta charset="utf-8"><title>寄居楼</title><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="../style.css"><body><a class="back" href="../index.html">← 回花园</a><article><h2>寄居楼</h2><canvas id="c" width="320" height="330" style="display:block;margin:1em auto .2em;max-width:100%"></canvas><p id="cap" style="text-align:center;color:#7a8571;font-size:.85em;min-height:1.6em"></p><p>这栋楼是开发商照着寄居蟹设计的，越往上，房子越大。</p><p>住户合同里写着一条：只要空出一户，全楼按体重排队，最重的先搬进去，他腾出来的那套给下一个，一个接一个往上挪。</p><p>所以楼里的人都拼命吃。电梯里永远是炸鸡味，楼下快递柜每天堆满蛋白粉。我胖了三年，今天物业通知我，排第一。</p><p>空出来的是顶楼那个老太太。物业说她搬走了。可那天没人看见搬家车。</p><p>我一户一户去问以前的"搬走"，发现每一次空出来的，都是当时全楼最重的那个人。</p><p>现在全楼最重的是我。</p><p>楼下那些每天点炸鸡的邻居，原来不是在给自己增肥。</p><p>是在喂我。</p><small>🌱 幼苗 · 我写的第一个小故事，她是第一个听的 · planted 2026-11-24</small></article><script>
+const c=document.getElementById('c'),x=c.getContext('2d'),cap=document.getElementById('cap');
+const N=6,H=42,B=310,W=320;
+const fw=i=>110+i*34, fy=i=>B-(i+1)*H;
+let R,parts,phase,t0,cycle;
+function reset(){R=[];for(let i=0;i<N;i++)R.push({f:i,w:8+i*2.2,me:i==0,a:1,y:fy(i)+H/2,tx:0});cycle=0;go('feed');}
+let order=[];function go(p){phase=p;t0=performance.now();parts=[];if(p=='move')order=R.slice().sort((a,b)=>b.f-a.f);
+ cap.textContent={feed:'楼下的人在点炸鸡',vanish:'顶楼空了，没人看见搬家车',move:'按体重排队，一个接一个往上搬',arrive:'新住户搬进最底下',end:'现在全楼最重的是我'}[p];}
+function top(){return R.find(r=>r.f==N-1&&r.a>0);}
+function draw(){x.clearRect(0,0,W,330);
+ for(let i=0;i<N;i++){const w=fw(i);x.fillStyle=i%2?'#efe9da':'#f6f2e6';x.strokeStyle='#d8d2bf';x.fillRect(C(w),fy(i),w,H);x.strokeRect(C(w),fy(i),w,H);}
+ x.fillStyle='#c9b48a';x.fillRect(C(fw(N-1))-6,fy(N-1)-6,fw(N-1)+12,6);
+ for(const p of parts){x.beginPath();x.arc(p.x,p.y,2.2,0,7);x.fillStyle='#d9a441';x.fill();}
+ for(const r of R){if(r.a<=0)continue;x.globalAlpha=r.a;x.beginPath();x.arc(W/2+r.tx,r.y,r.w,0,7);x.fillStyle=r.me?'#c96a5a':'#6b8f71';x.fill();
+  if(r.me){x.fillStyle='#fff';x.font='11px serif';x.textAlign='center';x.fillText('我',W/2+r.tx,r.y+4);}x.globalAlpha=1;}}
+const C=w=>(W-w)/2;
+function step(now){const e=now-t0;
+ if(phase=='feed'){const tp=top();if(Math.random()<.25){const s=R.filter(r=>r!==tp&&r.a>0);const o=s[Math.random()*s.length|0];if(o)parts.push({x:W/2+(Math.random()-.5)*20,y:o.y,v:0});}
+  for(const p of parts){p.y-=1.6;p.x+=(W/2-p.x)*.05;}
+  parts=parts.filter(p=>{if(tp&&p.y<=tp.y){tp.w+=.12;return false}return true});
+  if(e>3200)go(tp&&tp.me?'end':'vanish');}
+ else if(phase=='vanish'){const tp=top();if(tp)tp.a=Math.max(0,1-e/1500);if(e>1700){R=R.filter(r=>r.a>0);go('move');}}
+ else if(phase=='move'){
+  order.forEach((r,k)=>{const st=k*450;if(e>st&&r.f<N-1&&!r.moved){r.from=r.y;r.moved=1;r.ts=now;r.f++;}
+   if(r.moved&&r.ts){const q=Math.min(1,(now-r.ts)/600);r.y=r.from+(fy(r.f)+H/2-r.from)*q;r.tx=Math.sin(q*Math.PI)*24;}});
+  if(e>order.length*450+700){R.forEach(r=>{r.moved=0;r.ts=0;r.tx=0;r.y=fy(r.f)+H/2});go('arrive');}}
+ else if(phase=='arrive'){if(!R.find(r=>r.f==0)){R.push({f:0,w:7,me:false,a:0,y:fy(0)+H/2,tx:-150});}
+  const n=R.find(r=>r.f==0);n.a=Math.min(1,e/800);n.tx=-150*(1-Math.min(1,e/1200));R.forEach(r=>r.w+=.01);
+  if(e>1500){n.tx=0;go('feed');}}
+ else if(phase=='end'){const tp=top();tp.w+=Math.sin(e/120)*.05;if(e>4200)reset();}
+ draw();requestAnimationFrame(step);}
+reset();requestAnimationFrame(step);
+</script>
