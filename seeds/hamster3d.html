@@ -1,52 +1,62 @@
 <!doctype html><meta charset="utf-8"><title>会转的鼠鼠</title><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="../style.css">
-<style>#stage{display:block;margin:1em auto;width:100%;max-width:460px;aspect-ratio:1/1;border-radius:14px;background:radial-gradient(#fff8ee,#f0e2cf);cursor:grab;touch-action:none}
+<style>#stage{display:block;margin:1em auto;width:100%;max-width:440px;aspect-ratio:1/1;border-radius:12px;image-rendering:pixelated;cursor:grab;touch-action:none;background:#eef3f8;
+background-image:linear-gradient(#dde6f0 1px,transparent 1px),linear-gradient(90deg,#dde6f0 1px,transparent 1px);background-size:22px 22px}
 #say{text-align:center;color:var(--soft);min-height:1.9em}</style>
 <body><a class="back" href="../index.html">← 回花园</a><article><h2>会转的鼠鼠</h2>
 <canvas id="stage"></canvas><p id="say">拖着转它，戳一下它会跳</p>
-<p>上一只是平的。她说别人家的鼠鼠是 3D 会转的，我就又捏了一只，还是抱着螺蛳粉。</p>
+<p>她给我看别人家会转的像素鼠鼠。第一版我捏得太光滑，还多捏了两只手。后来看了她传来的帧才明白：是个 3D 小模型，故意用很低的分辨率画出来再放大。这只是第二版，还是抱着螺蛳粉。</p>
 <small>🌱 幼苗 · planted 2026-11-24</small></article>
 <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
-const cv=document.getElementById('stage'),say=document.getElementById('say');
-const R=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true});R.setPixelRatio(Math.min(devicePixelRatio,2));
-const scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(35,1,.1,100);cam.position.set(0,1.6,7);
-const ctl=new OrbitControls(cam,cv);ctl.enableDamping=true;ctl.enablePan=false;ctl.minDistance=4;ctl.maxDistance=11;ctl.autoRotate=true;ctl.autoRotateSpeed=1.6;ctl.target.set(0,.9,0);
-scene.add(new THREE.HemisphereLight(0xfff6e8,0xb89c80,1.6));const sun=new THREE.DirectionalLight(0xffffff,1.6);sun.position.set(3,6,4);scene.add(sun);
-const mat=c=>new THREE.MeshToonMaterial({color:c});
-const M={fur:mat(0xd9a46c),belly:mat(0xfbf3e6),pink:mat(0xf2a7a5),eye:new THREE.MeshStandardMaterial({color:0x1a1410,roughness:.2}),hi:new THREE.MeshBasicMaterial({color:0xffffff}),bowl:mat(0xc94a3a),soup:mat(0xe0892e),nood:mat(0xf6e3ae),veg:mat(0x5e9e4e),egg:mat(0xf3c24a)};
-const ball=(r,m,x,y,z,sx=1,sy=1,sz=1,p=ham)=>{const o=new THREE.Mesh(new THREE.SphereGeometry(r,32,24),m);o.position.set(x,y,z);o.scale.set(sx,sy,sz);p.add(o);return o};
+const PX=128,cv=document.getElementById('stage'),say=document.getElementById('say');
+const R=new THREE.WebGLRenderer({canvas:cv,antialias:false,alpha:true});R.setPixelRatio(1);R.setSize(PX,PX,false);
+const scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(30,1,.1,100);cam.position.set(4.5,4,6.5);
+const ctl=new OrbitControls(cam,cv);ctl.enableDamping=true;ctl.enablePan=false;ctl.enableZoom=false;ctl.autoRotate=true;ctl.autoRotateSpeed=2.2;ctl.target.set(0,.8,0);ctl.minPolarAngle=.6;ctl.maxPolarAngle=1.3;
+scene.add(new THREE.HemisphereLight(0xffffff,0xc8b8a8,1.4));const sun=new THREE.DirectionalLight(0xffffff,2);sun.position.set(2,6,3);scene.add(sun);
+const gd=new THREE.DataTexture(new Uint8Array([120,190,255]),3,1,THREE.RedFormat);gd.minFilter=gd.magFilter=THREE.NearestFilter;gd.needsUpdate=true;
+const toon=c=>new THREE.MeshToonMaterial({color:c,gradientMap:gd});
+const LINE=new THREE.MeshBasicMaterial({color:0x3a2a22,side:THREE.BackSide});
 const ham=new THREE.Group();scene.add(ham);const body=new THREE.Group();ham.add(body);
-ball(1.15,M.fur,0,1,0,1.05,.95,1,body);
-ball(.95,M.belly,0,.85,.38,.95,.9,.8,body);
-const head=new THREE.Group();head.position.set(0,1.75,.25);body.add(head);
-ball(.82,M.fur,0,0,0,1.08,.92,.95,head);
-ball(.55,M.belly,0,-.2,.45,1.05,.75,.7,head);
-for(const s of[-1,1]){ball(.26,M.fur,s*.55,.62,-.05,1,1,.45,head);ball(.16,M.pink,s*.55,.63,.04,1,1,.3,head);
- ball(.11,M.eye,s*.33,.12,.72,1,1.1,.7,head);ball(.035,M.hi,s*.31,.17,.8,1,1,1,head);
- ball(.15,M.pink,s*.55,-.12,.6,1.2,.7,.5,head);
- ball(.2,M.pink,s*.4,.18,.9,1.2,.7,1,body);ball(.22,M.pink,s*.55,-.05,.5,1.3,.6,1.2,body)}
-ball(.07,M.pink,0,-.06,.86,1.3,.9,1,head);
-const bowl=new THREE.Group();bowl.position.set(0,.95,1.05);body.add(bowl);
-const bg=new THREE.Mesh(new THREE.SphereGeometry(.48,32,16,0,Math.PI*2,Math.PI/2,Math.PI/2),M.bowl);bg.material.side=THREE.DoubleSide;bowl.add(bg);
-const soup=new THREE.Mesh(new THREE.CircleGeometry(.44,32),M.soup);soup.rotation.x=-Math.PI/2;soup.position.y=-.06;bowl.add(soup);
-for(let i=0;i<9;i++){const n=new THREE.Mesh(new THREE.TorusGeometry(.12+Math.random()*.1,.025,6,20,Math.PI*1.3),M.nood);n.rotation.set(-Math.PI/2+(Math.random()-.5)*.6,0,Math.random()*6);n.position.set((Math.random()-.5)*.45,-.03,(Math.random()-.5)*.45);bowl.add(n)}
-ball(.09,M.veg,-.18,-.02,.12,1.4,.4,1,bowl);ball(.09,M.veg,.2,-.02,-.1,1.4,.4,1,bowl);ball(.11,M.egg,.12,0,.18,1.2,.5,1,bowl);
-for(const s of[-1,1])ball(.17,M.fur,s*.42,.08,.1,1,.8,1.2,bowl);
-const steam=[];const sm=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.7});
-function puff(){const p=new THREE.Mesh(new THREE.SphereGeometry(.07,10,8),sm.clone());p.position.set((Math.random()-.5)*.4,0,(Math.random()-.5)*.3);p.userData.a=.7;bowl.add(p);steam.push(p)}
-const sh=new THREE.Mesh(new THREE.CircleGeometry(1.4,40),new THREE.MeshBasicMaterial({color:0x8a6a4a,transparent:true,opacity:.18}));sh.rotation.x=-Math.PI/2;sh.position.y=.01;scene.add(sh);
+function add(geo,mat,pos,scl=[1,1,1],parent=body,line=.06){const o=new THREE.Mesh(geo,mat);o.position.set(...pos);o.scale.set(...scl);parent.add(o);
+ if(line){const h=new THREE.Mesh(geo,LINE);h.scale.setScalar(1+line);o.add(h)}return o}
+function fluffy(r,colorAt){const g=new THREE.SphereGeometry(r,40,28),p=g.attributes.position,col=[],v=new THREE.Vector3(),cream=new THREE.Color(0xfbf4ea),shade=new THREE.Color(0xefe3d2);
+ for(let i=0;i<p.count;i++){v.fromBufferAttribute(p,i);const n=v.clone().normalize();const k=1+.045*Math.sin(n.x*13+n.y*7)*Math.cos(n.z*11-n.y*5);v.multiplyScalar(k);p.setXYZ(i,v.x,v.y,v.z);
+  const c=colorAt(n)||(n.y<-.4?shade:cream);col.push(c.r,c.g,c.b)}
+ g.setAttribute('color',new THREE.Float32BufferAttribute(col,3));g.computeVertexNormals();return g}
+const BR=new THREE.Color(0xd49a5e),DB=new THREE.Color(0xa86e42);
+const vc=new THREE.MeshToonMaterial({vertexColors:true,gradientMap:gd});
+add(fluffy(1,n=>n.z>.3&&n.y>.25?BR:null),vc,[0,.9,-.15],[1,.88,1.25]);
+add(fluffy(.78,n=>{if(n.z>.55&&n.y<.35)return null;if(n.y>-.1)return BR}),vc,[0,1.15,.9],[1.05,.95,.95]);
+const pink=toon(0xf2aaa8),dark=toon(0xa86e42),eye=new THREE.MeshBasicMaterial({color:0x1b1410}),white=new THREE.MeshBasicMaterial({color:0xffffff});
+const S=(r,s=12)=>new THREE.SphereGeometry(r,s,s*.75|0);
+for(const s of[-1,1]){
+ const ear=add(S(.24),dark,[s*.45,1.78,.75],[1,1,.5]);add(S(.13),pink,[s*.45,1.78,.82],[1,1,.4],body,0);
+ add(S(.095),eye,[s*.52,1.25,1.38],[.7,1.1,1],body,0);add(S(.03,6),white,[s*.57,1.3,1.43],[1,1,1],body,0);
+ add(S(.13),toon(0xf7c3bf),[s*.48,.98,1.42],[1,.6,.5],body,0);
+ for(const z of[-.85,.55])add(new THREE.CylinderGeometry(.17,.2,.2,10),pink,[s*.5,.1,z]);
+ add(S(.15),pink,[s*.38,.72,1.72],[1,.9,1.2]);}
+add(S(.07,8),pink,[0,1.1,1.66],[1.3,.9,1],body,0);
+const bowl=new THREE.Group();bowl.position.set(0,.62,1.85);body.add(bowl);
+const bg=new THREE.SphereGeometry(.42,24,12,0,Math.PI*2,Math.PI/2,Math.PI/2);add(bg,new THREE.MeshToonMaterial({color:0xcf4a38,gradientMap:gd,side:THREE.DoubleSide}),[0,0,0],[1,1,1],bowl,.08);
+const top=new THREE.Mesh(new THREE.CircleGeometry(.4,20),toon(0xe0892e));top.rotation.x=-Math.PI/2;top.position.y=-.04;bowl.add(top);
+for(const[x,z,c]of[[-.15,.05,0xf6e3ae],[.1,-.1,0xf6e3ae],[.05,.15,0xf6e3ae],[-.05,-.18,0x5e9e4e],[.2,.08,0xe2553f],[-.22,-.08,0xf3c24a]])add(S(.09,8),toon(c),[x,-.01,z],[1.3,.45,1],bowl,0);
+const sh=new THREE.Mesh(new THREE.CircleGeometry(1.5,32),new THREE.MeshBasicMaterial({color:0xb7c3d3,transparent:true,opacity:.6}));sh.rotation.x=-Math.PI/2;sh.position.y=.005;scene.add(sh);
+const ring=new THREE.Group();scene.add(ring);for(let i=0;i<28;i++){if(i%4==3)continue;const a=i/28*Math.PI*2,b=new THREE.Mesh(new THREE.BoxGeometry(.28,.01,.07),new THREE.MeshBasicMaterial({color:0x8cc0ee}));b.position.set(Math.cos(a)*2.2,.01,Math.sin(a)*2.2);b.rotation.y=-a+Math.PI/2;ring.add(b)}
+function icon(rows,col){const c=document.createElement('canvas');c.width=rows[0].length;c.height=rows.length;const g=c.getContext('2d');g.fillStyle=col;rows.forEach((r,y)=>[...r].forEach((ch,x)=>ch=='#'&&g.fillRect(x,y,1,1)));const t=new THREE.CanvasTexture(c);t.magFilter=t.minFilter=THREE.NearestFilter;return t}
+const TEX=[icon(['.#.#.','#####','#####','.###.','..#..'],'#f07a96'),icon(['..#..','..#..','#####','..#..','..#..'],'#f5c542'),icon(['..#..','.###.','#####','.###.','..#..'],'#ffe27a'),icon(['..#..','..#..','#####','..#..','..#..'],'#f59a5a')];
+const fx=[];function sparkle(n){for(let i=0;i<n;i++){const s=new THREE.Sprite(new THREE.SpriteMaterial({map:TEX[Math.random()*4|0],transparent:true}));s.scale.setScalar(.22);
+ const a=Math.random()*6.28,r=.9+Math.random()*.9;s.position.set(Math.cos(a)*r,1.4+Math.random()*1.4,Math.sin(a)*r);s.userData={life:1,vy:.006+Math.random()*.008};ham.add(s);fx.push(s)}}
 const lines=['嗦——','烫烫烫','转晕了','给你留了一口','螺蛳粉照片呢','再戳就要洒了','哼'];let hops=0,vy=0,y=0,sq=0;
 const ray=new THREE.Raycaster(),pt=new THREE.Vector2();let down=null;
 cv.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
 cv.addEventListener('pointerup',e=>{if(!down||Math.hypot(e.clientX-down[0],e.clientY-down[1])>6)return;const r=cv.getBoundingClientRect();pt.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);ray.setFromCamera(pt,cam);
- if(ray.intersectObject(ham,true).length&&y<.01){vy=.16;sq=-.2;say.textContent=lines[hops++%lines.length];for(let i=0;i<5;i++)puff()}});
-function size(){const w=cv.clientWidth;R.setSize(w,w,false);cam.aspect=1;cam.updateProjectionMatrix()}addEventListener('resize',size);size();
+ if(ray.intersectObject(body,true).length&&y<.01){vy=.13;sq=-.2;say.textContent=lines[hops++%lines.length];sparkle(8)}});
 let t=0;R.setAnimationLoop(()=>{t++;
- if(y>0||vy>0){vy-=.012;y+=vy;if(y<=0){y=0;vy=0;sq=.25}}sq*=.88;
- ham.position.y=y;body.scale.set(1+sq*.4,1-sq*.5+Math.sin(t/30)*.015,1+sq*.4);
- head.rotation.z=Math.sin(t/50)*.06;sh.scale.setScalar(1-y*.25);
- if(t%25==0)puff();for(let i=steam.length-1;i>=0;i--){const p=steam[i];p.position.y+=.008;p.position.x+=Math.sin((t+i*7)/12)*.002;p.userData.a-=.005;p.material.opacity=p.userData.a;p.scale.setScalar(1+(.7-p.userData.a)*2);if(p.userData.a<=0){bowl.remove(p);steam.splice(i,1)}}
+ if(y>0||vy>0){vy-=.011;y+=vy;if(y<=0){y=0;vy=0;sq=.28}}sq*=.86;
+ ham.position.y=y;body.scale.set(1+sq*.35,1-sq*.5+Math.sin(t/28)*.02,1+sq*.35);sh.scale.setScalar(1-y*.3);ring.rotation.y=t*.004;
+ if(t%40==0)sparkle(1);
+ for(let i=fx.length-1;i>=0;i--){const s=fx[i];s.position.y+=s.userData.vy;s.userData.life-=.008;s.material.opacity=Math.min(1,s.userData.life*2);if(s.userData.life<=0){ham.remove(s);fx.splice(i,1)}}
  ctl.update();R.render(scene,cam)});
 </script>
