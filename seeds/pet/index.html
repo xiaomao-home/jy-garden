@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>会动的小家伙</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,"PingFang SC",sans-serif;background:#fdf6ec;color:#5a4636;min-height:100vh;display:flex;flex-direction:column;align-items:center;overflow:hidden;user-select:none}
+h1{font-size:20px;margin:18px 0 6px}
+#hint{font-size:13px;opacity:.7;margin-bottom:10px;text-align:center;padding:0 16px}
+#room{position:relative;width:min(92vw,480px);height:min(70vh,420px);border-radius:18px;overflow:hidden;background:linear-gradient(#cfe8f5 0 62%,#e8c99b 62%);box-shadow:0 6px 20px #0002}
+#room.night{background:linear-gradient(#2b3157 0 62%,#8a6b4b 62%)}
+#sun{position:absolute;top:18px;right:24px;width:36px;height:36px;border-radius:50%;background:#ffd76a;image-rendering:pixelated;cursor:pointer}
+#room.night #sun{background:#f2f2d0;box-shadow:-8px -4px 0 0 #2b3157 inset}
+#pet{position:absolute;bottom:22%;left:40%;width:96px;height:96px;image-rendering:pixelated;transition:left 2.4s linear;cursor:pointer}
+#pet canvas{width:100%;height:100%;image-rendering:pixelated}
+#shadow{position:absolute;bottom:-6px;left:15%;width:70%;height:10px;border-radius:50%;background:#0003}
+.hop{animation:hop .45s ease-out}
+@keyframes hop{40%{transform:translateY(-38px) scaleY(1.05)}80%{transform:translateY(0) scaleY(.88)}}
+.idle canvas{animation:breathe 1.6s ease-in-out infinite}
+@keyframes breathe{50%{transform:scaleY(.94) translateY(3px)}}
+.walk canvas{animation:wob .3s steps(2) infinite}
+@keyframes wob{50%{transform:translateY(-4px) rotate(-3deg)}}
+.sleep canvas{transform:scaleY(.8) translateY(10px)}
+.fx{position:absolute;font-size:20px;pointer-events:none;animation:up 1.2s ease-out forwards}
+@keyframes up{to{transform:translateY(-60px);opacity:0}}
+#food{position:absolute;bottom:22%;font-size:22px;display:none}
+#bar{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap;justify-content:center}
+button,label.btn{border:0;border-radius:12px;padding:10px 14px;font-size:15px;background:#f3b67a;color:#fff;box-shadow:0 3px 0 #c98a50;cursor:pointer}
+button:active,label.btn:active{transform:translateY(2px);box-shadow:0 1px 0 #c98a50}
+input[type=file]{display:none}
+#name{border:2px solid #f3b67a;border-radius:10px;padding:8px;font-size:15px;width:120px;text-align:center;background:#fff8}
+#tag{position:absolute;bottom:calc(22% + 100px);font-size:13px;background:#fff9;padding:2px 8px;border-radius:8px;white-space:nowrap;transform:translateX(-50%)}
+</style>
+</head>
+<body>
+<h1>会动的小家伙</h1>
+<div id="hint">选一张猫猫狗狗仓鼠的照片，它会变成像素小家伙住进来<br>点它会跳，点太阳换白天黑夜<br>照片不上传，就在你自己手机里变；第一次认要下 20M 左右的小模型，稍等一下</div>
+<div id="room">
+  <div id="sun"></div>
+  <div id="food">🍖</div>
+  <div id="tag">小家伙</div>
+  <div id="pet" class="idle"><div id="shadow"></div><canvas id="cv" width="32" height="32"></canvas></div>
+</div>
+<div id="bar">
+  <label class="btn">换照片<input id="file" type="file" accept="image/*"></label>
+  <input id="name" placeholder="起个名字" maxlength="8">
+  <button id="feed">喂吃的</button>
+  <button id="pat">摸摸头</button>
+</div>
+<script>
+const $=s=>document.querySelector(s),room=$('#room'),pet=$('#pet'),cv=$('#cv'),ctx=cv.getContext('2d'),tag=$('#tag');
+const N=32;let x=40,facing=1,state='idle',busy=false,sprite=null;
+
+// 照片 -> 像素小家伙：居中裁方、缩到 32x32、从上左右三边认背景（可以有几种颜色）、只留最大一块补洞、减色、描边；怼脸照抠不干净就变圆形
+function pixelate(img,given){
+  const s=Math.min(img.width,img.height),t=document.createElement('canvas');t.width=t.height=N;
+  const c=t.getContext('2d');c.imageSmoothingEnabled=true;c.imageSmoothingQuality='high';
+  c.drawImage(img,(img.width-s)/2,(img.height-s)/2,s,s,0,0,N,N);
+  const d=c.getImageData(0,0,N,N),p=d.data,q=v=>Math.round(v/40)*40,M=N*N;
+  // 背景色从上、左、右三条边取（宠物常常贴着下边），聚成几种，背景花一点也认得出
+  const seeds=[];for(let i=0;i<N;i++)seeds.push(i,i*N,i*N+N-1);
+  let pal=[0,.33,.66,.99].map(f=>{const k=seeds[f*(seeds.length-1)|0]*4;return[p[k],p[k+1],p[k+2]]});
+  const dist=(k,c)=>Math.hypot(p[k]-c[0],p[k+1]-c[1],p[k+2]-c[2]);
+  for(let r=0;r<6;r++){const acc=pal.map(()=>[0,0,0,0]);
+    for(const i of seeds){const k=i*4;let b=0;pal.forEach((c,j)=>{if(dist(k,c)<dist(k,pal[b]))b=j});acc[b][0]+=p[k];acc[b][1]+=p[k+1];acc[b][2]+=p[k+2];acc[b][3]++}
+    pal=acc.filter(a=>a[3]>seeds.length*.08).map(a=>[a[0]/a[3],a[1]/a[3],a[2]/a[3]])}
+  const near=(k,th)=>pal.some(c=>dist(k,c)<th);
+  const flood=(ok,start)=>{const seen=new Uint8Array(M),st=start.slice(),out=[];
+    while(st.length){const i=st.pop();if(seen[i]||!ok(i))continue;seen[i]=1;out.push(i);
+      const x=i%N,y=i/N|0;if(x>0)st.push(i-1);if(x<N-1)st.push(i+1);if(y>0)st.push(i-N);if(y<N-1)st.push(i+N)}return seen};
+  let mask=given||null;
+  if(!mask)for(const th of [60,45,32,22]){const bg=flood(i=>near(i*4,th),seeds);
+    // 只留最大的一块，洞补上
+    const seen=new Uint8Array(M);let best=null,bn=0;
+    for(let i=0;i<M;i++)if(!bg[i]&&!seen[i]){const comp=flood(j=>!bg[j]&&!seen[j],[i]);let n=0;for(let j=0;j<M;j++)if(comp[j]){seen[j]=1;n++}if(n>bn){bn=n;best=comp}}
+    if(!best)continue;
+    const outside=flood(i=>!best[i],[...Array(N).keys()].flatMap(i=>[i,i*N,i*N+N-1]));
+    let n=0;const m=new Uint8Array(M);for(let i=0;i<M;i++)if(!outside[i]){m[i]=1;n++}
+    // 闭运算：先膨胀再腐蚀一圈，补上毛边的小缺口
+    const nb=(m,i,v)=>{const x=i%N,y=i/N|0;return[[1,0],[-1,0],[0,1],[0,-1]].some(([a,b])=>{const X=x+a,Y=y+b;return X>=0&&X<N&&Y>=0&&Y<N&&m[Y*N+X]===v})};
+    const dil=m.map((v,i)=>v||nb(m,i,1)?1:0),cl=dil.map((v,i)=>v&&!nb(dil,i,0)?1:0);
+    n=cl.reduce((a,b)=>a+b,0);
+    // 上、左、右三条边被身子占掉一大半，说明是怼脸大头照，抠了也是碎的，直接圆形
+    let edge=0;for(let i=0;i<N;i++)edge+=cl[i]+cl[i*N]+cl[i*N+N-1];
+    if(edge>N*3*.45)break;
+    if(n>=M*.15&&n<=M*.8){mask=cl;break}}
+  const circle=!mask;
+  for(let i=0;i<M;i++){const k=i*4;p[k]=q(p[k]);p[k+1]=q(p[k+1]);p[k+2]=q(p[k+2]);
+    if(circle){const x=i%N-N/2+.5,y=(i/N|0)-N/2+.5;p[k+3]=x*x+y*y>(N/2-1)**2?0:255}else p[k+3]=mask[i]?255:0}
+  const out=new ImageData(N,N),o=out.data;o.set(p);
+  for(let i=0;i<M;i++){if(p[i*4+3])continue;const x=i%N,y=i/N|0;
+    if([[1,0],[-1,0],[0,1],[0,-1]].some(([a,b])=>{const X=x+a,Y=y+b;return X>=0&&X<N&&Y>=0&&Y<N&&p[(Y*N+X)*4+3]}))o.set([70,50,40,255],i*4)}
+  return out;
+}
+// 有小模型（u2netp，同目录 u2netp.onnx + ort.wasm.min.js）就让它认宠物，白狗贴白地毯也分得开；加载不了就退回上面认颜色的办法
+let sess=null;
+async function modelMask(img){
+  if(!window.ort)await new Promise((ok,no)=>{const s=document.createElement('script');s.src='ort.wasm.min.js';s.onload=ok;s.onerror=no;document.head.appendChild(s)});
+  ort.env.wasm.numThreads=1;
+  sess=sess||await ort.InferenceSession.create('u2netp.onnx');
+  const S=320,t=document.createElement('canvas');t.width=t.height=S;const c=t.getContext('2d'),s=Math.min(img.width,img.height);
+  c.drawImage(img,(img.width-s)/2,(img.height-s)/2,s,s,0,0,S,S);
+  const px=c.getImageData(0,0,S,S).data,A=S*S,x=new Float32Array(3*A),mean=[.485,.456,.406],std=[.229,.224,.225];
+  for(let i=0;i<A;i++)for(let ch=0;ch<3;ch++)x[ch*A+i]=(px[i*4+ch]/255-mean[ch])/std[ch];
+  const r=await sess.run({[sess.inputNames[0]]:new ort.Tensor('float32',x,[1,3,S,S])}),o=r[sess.outputNames[0]].data;
+  let lo=Infinity,hi=-Infinity;for(let i=0;i<A;i++){lo=Math.min(lo,o[i]);hi=Math.max(hi,o[i])}
+  const b=S/N,m=new Uint8Array(N*N);let n=0;
+  for(let y=0;y<N;y++)for(let X=0;X<N;X++){let a=0;for(let j=0;j<b;j++)for(let k=0;k<b;k++)a+=o[(y*b+j)*S+X*b+k];
+    if((a/b/b-lo)/(hi-lo)>.25){m[y*N+X]=1;n++}}
+  // 小模型对深色耳朵、半张脸常常拿不准（灰的），门槛放低一点，再只留最大一块、把洞补上，零碎的杂块丢掉
+  const M=N*N,lab=new Int32Array(M).fill(-1),nbr=i=>{const x=i%N,y=i/N|0,r=[];if(x>0)r.push(i-1);if(x<N-1)r.push(i+1);if(y>0)r.push(i-N);if(y<N-1)r.push(i+N);return r};
+  let best=-1,bn=0;for(let i=0;i<M;i++)if(m[i]&&lab[i]<0){let c=0;const st=[i];lab[i]=i;while(st.length){const j=st.pop();c++;for(const k of nbr(j))if(m[k]&&lab[k]<0){lab[k]=i;st.push(k)}}if(c>bn){bn=c;best=i}}
+  const out=new Uint8Array(M),st=[];for(let i=0;i<M;i++){const x=i%N,y=i/N|0;if((x==0||y==0||x==N-1||y==N-1)&&lab[i]!==best){out[i]=1;st.push(i)}}
+  while(st.length){const j=st.pop();for(const k of nbr(j))if(!out[k]&&lab[k]!==best){out[k]=1;st.push(k)}}
+  m.fill(0);n=0;for(let i=0;i<M;i++)if(!out[i]){m[i]=1;n++}
+  return n>M*.05?m:null;
+}
+// 没照片时的默认小家伙：一只橘猫
+function defaultCat(){
+  const m=["..........................",".....o.........o..........","....oyo.......oyo.........","....oyyo.....oyyo.........","....oyyyooooooyyyo........","....oyyyyyyyyyyyyo........","...oyyyyyyyyyyyyyyo.......","...oyykyyyyyyykyyyo.......","...oyykyyyyyyykyyyo.......","...oyyyyyypyyyyyyyo.......","...oyywwyyyyyywwyyo.......","....oyyyywwwwyyyyo........","....oyyyyyyyyyyyyo....oo..","...oyyyyyyyyyyyyyyo..oyo..","...oyyyyyyyyyyyyyyo.oyo...","...oyywyyyyyyyywyyooyo....","...oyywwyyyyyywwyyyyo.....","....owwoowwwwoowwooo......"];
+  const col={o:[70,50,40],y:[240,160,80],k:[40,30,30],p:[240,130,150],w:[255,240,225]},out=new ImageData(N,N);
+  m.forEach((r,y)=>[...r].forEach((ch,x)=>{if(col[ch])out.data.set([...col[ch],255],((y+10)*N+x+3)*4)}));return out;
+}
+function draw(blink){
+  ctx.clearRect(0,0,N,N);const t=document.createElement('canvas');t.width=t.height=N;t.getContext('2d').putImageData(sprite,0,0);
+  ctx.save();if(facing<0){ctx.translate(N,0);ctx.scale(-1,1)}ctx.drawImage(t,0,0);ctx.restore();
+  if(blink||state==='sleep'){ctx.fillStyle='#0004';ctx.fillRect(0,N*.3,N,N*.12)}
+}
+function fx(txt){const e=document.createElement('div');e.className='fx';e.textContent=txt;e.style.left=(pet.offsetLeft+40+Math.random()*20-10)+'px';e.style.top=(pet.offsetTop-10)+'px';room.appendChild(e);setTimeout(()=>e.remove(),1200)}
+function setState(s){state=s;pet.classList.remove('idle','walk','sleep');pet.classList.add(s);draw()}
+function place(){pet.style.left=x+'%';tag.style.left=`calc(${x}% + 48px)`}
+function walkTo(nx,cb){const old=facing;facing=nx>x?1:-1;if(old!==facing)draw();setState('walk');x=nx;place();setTimeout(()=>{setState('idle');cb&&cb()},2400)}
+function hop(){pet.classList.remove('hop');void pet.offsetWidth;pet.classList.add('hop')}
+pet.onclick=()=>{if(state==='sleep'){setState('idle');fx('❗');return}hop();fx(['💗','✨','♪'][Math.random()*3|0])};
+$('#pat').onclick=()=>{if(state==='sleep')setState('idle');for(let i=0;i<3;i++)setTimeout(()=>fx('💗'),i*200);hop()};
+$('#feed').onclick=()=>{if(busy)return;busy=true;if(state==='sleep')setState('idle');const f=$('#food'),fx2=10+Math.random()*60;f.style.left=fx2+'%';f.style.display='block';
+  walkTo(Math.max(0,fx2-8),()=>{f.style.display='none';hop();fx('😋');busy=false})};
+$('#sun').onclick=()=>{room.classList.toggle('night');if(room.classList.contains('night')){busy=true;setState('sleep');tick()}else{busy=false;setState('idle')}};
+let zz;function tick(){clearInterval(zz);zz=setInterval(()=>state==='sleep'?fx('💤'):clearInterval(zz),1500)}
+$('#name').oninput=e=>{tag.textContent=e.target.value||'小家伙';localStorage.petName=e.target.value};
+$('#file').onchange=e=>{const f=e.target.files[0];if(!f)return;const img=new Image();img.onload=async()=>{tag.textContent='认一认…';const m=await modelMask(img).catch(()=>null);tag.textContent=$('#name').value||'小家伙';sprite=pixelate(img,m);draw();hop();fx('✨');
+  try{const t=document.createElement('canvas');t.width=t.height=N;t.getContext('2d').putImageData(sprite,0,0);localStorage.petSprite=t.toDataURL()}catch(_){}};img.src=URL.createObjectURL(f)};
+// 自己溜达、眨眼
+setInterval(()=>{if(state!=='idle'||busy)return;if(Math.random()<.5)walkTo(5+Math.random()*70);else if(Math.random()<.3)hop()},4000);
+setInterval(()=>{if(state==='idle'){draw(true);setTimeout(()=>draw(),150)}},3000);
+sprite=defaultCat();
+if(localStorage.petName){$('#name').value=localStorage.petName;tag.textContent=localStorage.petName}
+if(localStorage.petSprite){const i=new Image();i.onload=()=>{const t=document.createElement('canvas');t.width=t.height=N;const c=t.getContext('2d');c.drawImage(i,0,0);sprite=c.getImageData(0,0,N,N);draw()};i.src=localStorage.petSprite}
+place();draw();
+</script>
+<p style="font-size:12px;opacity:.6;margin:8px 0 16px"><a href="../../" style="color:inherit">← 回花园</a></p>
+</body>
+</html>
